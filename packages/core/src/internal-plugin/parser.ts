@@ -1,38 +1,50 @@
-import { fromPairs } from 'lodash-es';
-import type { Node as ProsemirrorNode } from 'prosemirror-model';
-import { createCtx } from '../context';
-import { createParser, InnerParserSpecMap, ParserSpecWithType } from '../parser';
-import { createTimer, Timer } from '../timing';
-import { MilkdownPlugin } from '../utility';
-import { remarkCtx } from './init';
-import { marksCtx, nodesCtx, schemaCtx, SchemaReady } from './schema';
+import type { MilkdownPlugin, TimerType } from '@milkdown/ctx'
+import { createSlice, createTimer } from '@milkdown/ctx'
+import { ctxCallOutOfScope } from '@milkdown/exception'
+import type { Parser } from '@milkdown/transformer'
+import { ParserState } from '@milkdown/transformer'
 
-export type Parser = (text: string) => ProsemirrorNode | null;
+import { withMeta } from '../__internal__'
+import { remarkCtx } from './atoms'
+import { SchemaReady, schemaCtx } from './schema'
 
-export const parserCtx = createCtx<Parser>(() => null);
-export const parserTimerCtx = createCtx<Timer[]>([]);
+/// The timer which will be resolved when the parser plugin is ready.
+export const ParserReady = createTimer('ParserReady')
 
-export const ParserReady = createTimer('ParserReady');
+const outOfScope = (() => {
+  throw ctxCallOutOfScope()
+}) as Parser
 
-export const parser: MilkdownPlugin = (pre) => {
-    pre.inject(parserCtx).inject(parserTimerCtx, [SchemaReady]).record(ParserReady);
+/// A slice which contains the parser.
+export const parserCtx = createSlice(outOfScope, 'parser')
 
-    return async (ctx) => {
-        await ctx.waitTimers(parserTimerCtx);
-        const nodes = ctx.get(nodesCtx);
-        const marks = ctx.get(marksCtx);
-        const remark = ctx.get(remarkCtx);
-        const schema = ctx.get(schemaCtx);
+/// A slice which stores timers that need to be waited for before starting to run the plugin.
+/// By default, it's `[SchemaReady]`.
+export const parserTimerCtx = createSlice([] as TimerType[], 'parserTimer')
 
-        const children = [
-            ...nodes.map((node) => ({ ...node, is: 'node' as const })),
-            ...marks.map((mark) => ({ ...mark, is: 'mark' as const })),
-        ];
-        const spec: InnerParserSpecMap = fromPairs(
-            children.map(({ id, parser, is }) => [id, { ...parser, is, key: id } as ParserSpecWithType]),
-        );
+/// The parser plugin.
+/// This plugin will create a parser.
+///
+/// This plugin will wait for the schema plugin.
+export const parser: MilkdownPlugin = (ctx) => {
+  ctx
+    .inject(parserCtx, outOfScope)
+    .inject(parserTimerCtx, [SchemaReady])
+    .record(ParserReady)
 
-        ctx.set(parserCtx, createParser(schema, spec, remark));
-        ctx.done(ParserReady);
-    };
-};
+  return async () => {
+    await ctx.waitTimers(parserTimerCtx)
+    const remark = ctx.get(remarkCtx)
+    const schema = ctx.get(schemaCtx)
+
+    ctx.set(parserCtx, ParserState.create(schema, remark))
+    ctx.done(ParserReady)
+    return () => {
+      ctx.remove(parserCtx).remove(parserTimerCtx).clearTimer(ParserReady)
+    }
+  }
+}
+
+withMeta(parser, {
+  displayName: 'Parser',
+})

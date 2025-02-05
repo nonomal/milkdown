@@ -1,29 +1,4 @@
 {
-    "extends": "./tsconfig.base.json",
-    "compilerOptions": {
-        "tsBuildInfoFile": "tsconfig.tsbuildinfo"
-    },
-    "include": [],
-    "exclude": ["node_modules", "lib"],
-    "references": [
-        { "path": "./packages/core" },
-        { "path": "./packages/utils" },
-        { "path": "./packages/exception" },
-        { "path": "./packages/react" },
-        { "path": "./packages/vue" },
-        { "path": "./packages/preset-commonmark" },
-        { "path": "./packages/preset-gfm" },
-        { "path": "./packages/design-system" },
-        { "path": "./packages/plugin-history" },
-        { "path": "./packages/plugin-emoji" },
-        { "path": "./packages/plugin-collaborative" },
-        { "path": "./packages/plugin-clipboard" },
-        { "path": "./packages/plugin-cursor" },
-        { "path": "./packages/plugin-listener" },
-        { "path": "./packages/plugin-math" },
-        { "path": "./packages/plugin-prism" },
-        { "path": "./packages/plugin-slash" },
-        { "path": "./packages/plugin-tooltip" },
-        { "path": "./packages/plugin-table" },
-    ]
+  "extends": "./tsconfig.base.json",
+  "include": ["**/*", "**/.storybook/*"]
 }
